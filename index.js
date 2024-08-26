@@ -174,6 +174,7 @@ const resolvers = {
     },
     editAuthor: (root, args) => {
       const author = authors.find((author) => author.name === args.name)
+      const authorBooks = books.filter((book) => book.author === args.name)
 
       if (!author) return null
 
@@ -181,7 +182,11 @@ const resolvers = {
       authors = authors.map((author) => {
         return author.name === args.name ? updatedAuthor : author
       })
-      return updatedAuthor
+      return {
+        name: updatedAuthor.name,
+        born: updatedAuthor.born,
+        bookCount: authorBooks.length,
+      }
     },
   },
 }
