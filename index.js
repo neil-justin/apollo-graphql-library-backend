@@ -143,7 +143,11 @@ const resolvers = {
     allAuthors: () => {
       return [...authors].map((author) => {
         const authorBooks = books.filter((book) => book.author === author.name)
-        return { name: author.name, bookCount: authorBooks.length }
+        return {
+          name: author.name,
+          born: author.born,
+          bookCount: authorBooks.length,
+        }
       })
     },
   },
@@ -174,8 +178,8 @@ const resolvers = {
       if (!author) return null
 
       const updatedAuthor = { ...author, born: args.setBornTo }
-      authors = authors.map(author => {
-       return author.name === args.name ? updatedAuthor : author
+      authors = authors.map((author) => {
+        return author.name === args.name ? updatedAuthor : author
       })
       return updatedAuthor
     },
