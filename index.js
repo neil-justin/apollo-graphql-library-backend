@@ -3,6 +3,25 @@ const { startStandaloneServer } = require('@apollo/server/standalone')
 const { GraphQLError } = require('graphql')
 const { v4: uuidv4 } = require('uuid')
 
+const mongoose = require('mongoose')
+const Book = require('./models/book')
+const Author = require('./models/author')
+
+mongoose.set('strictQuery', false)
+require('dotenv').config()
+
+const MONGODB_URI = process.env.MONGODB_URI
+
+console.log('connecting to', MONGODB_URI)
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => {
+    console.log('connected to MongoDB')
+  })
+  .catch((error) => {
+    console.log('error connection to MongoDB:', error.message)
+  })
+
 let authors = [
   {
     name: 'Robert Martin',
@@ -91,12 +110,13 @@ const typeDefs = `
   type AuthorDetails {
     name: String!
     born: Int
+    id: ID!
     bookCount: Int!
   }
 
   type Book {
     title: String!
-    author: String!
+    author: AuthorDetails!
     published: Int!
     genres: [String!]!
     id: ID!
