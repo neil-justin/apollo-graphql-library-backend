@@ -228,10 +228,11 @@ const resolvers = {
         await newBook.save()
       } catch (error) {
         throw new GraphQLError(
-          "Saving book failed. Please refer to this data's corresponding Schema to check which arguments violate rules", {
+          "Saving book failed. Please refer to this data's corresponding Schema to check which arguments violate rules",
+          {
             extensions: {
               code: 'BAD_USER_INPUT',
-            }
+            },
           }
         )
       }
