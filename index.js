@@ -146,23 +146,44 @@ const typeDefs = `
 
 const resolvers = {
   Query: {
-    bookCount: () => books.length,
-    authorCount: () => authors.length,
-    allBooks: (root, args) => {
+    bookCount: async () => {
+      const dbBooks = await Book.find({})
+      mongoose.connection.close()
+      return dbBooks.length
+    },
+    authorCount: async () => {
+      const dbAuthors = await Author.find({})
+      mongoose.connection.close()
+      return dbAuthors.length
+    },
+    allBooks: async (root, args) => {
+      const dbBooks = await Book.find({})
+      const dbAuthor = await Author.findOne({ name: args.author })
+      mongoose.connection.close()
+
       if (args.author && args.genre) {
-        const byGenre = books.filter((book) => book.genres.includes(args.genre))
-        return byGenre.filter((book) => book.author === args.author)
+        const byAuthorGenre = dbBooks
+          .filter((book) => book.genres.includes(args.genre))
+          .filter((book) => dbAuthor._id.equals(book.author))
+
+        return byAuthorGenre
       } else if (args.author) {
-        return books.filter((book) => book.author === args.author)
+        return dbBooks.filter((book) => dbAuthor._id.equals(book.author))
       } else if (args.genre) {
-        return books.filter((book) => book.genres.includes(args.genre))
+        return dbBooks.filter((book) => book.genres.includes(args.genre))
       } else {
-        return books
+        return dbBooks
       }
     },
-    allAuthors: () => {
-      return [...authors].map((author) => {
-        const authorBooks = books.filter((book) => book.author === author.name)
+    allAuthors: async () => {
+      const dbAuthors = await Author.find({})
+      const dbBooks = await Book.find({})
+      mongoose.connection.close()
+
+      return [...dbAuthors].map((author) => {
+        const authorBooks = dbBooks.filter((book) =>
+          author._id.equals(book.author)
+        )
         return {
           name: author.name,
           born: author.born,
@@ -172,14 +193,18 @@ const resolvers = {
     },
   },
   Mutation: {
-    addBook: (root, args) => {
-      // add author if it is not in the server yet
-      if (!authors.find((author) => author.name === args.author)) {
-        const author = { name: args.author, id: uuidv4() }
-        authors = authors.concat(author)
+    addBook: async (root, args) => {
+      const dbAuthors = await Author.find({})
+      let foundAuthor = dbAuthors.find((author) => author.name === args.author)
+      const foundBook = books.find((book) => book.title === args.title)
+
+      if (!foundAuthor) {
+        const newAuthor = new Author({ name: args.author })
+        await newAuthor.save()
+        foundAuthor = newAuthor
       }
 
-      if (books.find((book) => book.title === args.title)) {
+      if (foundBook) {
         throw new GraphQLError('Book is already added', {
           extensions: {
             code: 'BAD_USER_INPUT',
@@ -188,23 +213,28 @@ const resolvers = {
         })
       }
 
-      const book = { ...args, id: uuidv4() }
-      books = books.concat(book)
-      return book
+      const newBook = new Book({ ...args, author: foundAuthor._id })
+
+      await newBook.save()
+      mongoose.connection.close()
+      return newBook
     },
-    editAuthor: (root, args) => {
-      const author = authors.find((author) => author.name === args.name)
-      const authorBooks = books.filter((book) => book.author === args.name)
+    editAuthor: async (root, args) => {
+      const dbAuthor = await Author.findOneAndUpdate(
+        { name: args.name },
+        { born: args.setBornTo },
+        { new: true }
+      )
 
-      if (!author) return null
+      if (!dbAuthor) return null
 
-      const updatedAuthor = { ...author, born: args.setBornTo }
-      authors = authors.map((author) => {
-        return author.name === args.name ? updatedAuthor : author
-      })
+      const authorBooks = (await Book.find({})).filter(
+        (book) => book.author === dbAuthor._id
+      )
       return {
-        name: updatedAuthor.name,
-        born: updatedAuthor.born,
+        id: dbAuthor._id,
+        name: dbAuthor.name,
+        born: dbAuthor.born,
         bookCount: authorBooks.length,
       }
     },
