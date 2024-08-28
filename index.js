@@ -194,17 +194,26 @@ const resolvers = {
   },
   Mutation: {
     addBook: async (root, args) => {
-      const dbAuthors = await Author.find({})
-      let foundAuthor = dbAuthors.find((author) => author.name === args.author)
-      const foundBook = books.find((book) => book.title === args.title)
+      const dbFoundAuthor = await Author.findOne({ name: args.author })
+      const dbFoundBook = await Book.findOne({ title: args.title })
 
-      if (!foundAuthor) {
+      if (!dbFoundAuthor) {
         const newAuthor = new Author({ name: args.author })
-        await newAuthor.save()
-        foundAuthor = newAuthor
+
+        try {
+          await newAuthor.save()
+        } catch (error) {
+          throw new GraphQLError('Author name should be 5 or more in length', {
+            extensions: {
+              code: 'BAD_USER_INPUT',
+              invalidArgs: args.author,
+            },
+          })
+        }
+        dbFoundAuthor = newAuthor
       }
 
-      if (foundBook) {
+      if (dbFoundBook) {
         throw new GraphQLError('Book is already added', {
           extensions: {
             code: 'BAD_USER_INPUT',
@@ -213,9 +222,19 @@ const resolvers = {
         })
       }
 
-      const newBook = new Book({ ...args, author: foundAuthor._id })
+      const newBook = new Book({ ...args, author: dbFoundAuthor._id })
 
-      await newBook.save()
+      try {
+        await newBook.save()
+      } catch (error) {
+        throw new GraphQLError(
+          "Saving book failed. Please refer to this data's corresponding Schema to check which arguments violate rules", {
+            extensions: {
+              code: 'BAD_USER_INPUT',
+            }
+          }
+        )
+      }
       mongoose.connection.close()
       return newBook
     },
