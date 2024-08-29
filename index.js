@@ -2,10 +2,12 @@ const { ApolloServer } = require('@apollo/server')
 const { startStandaloneServer } = require('@apollo/server/standalone')
 const { GraphQLError } = require('graphql')
 const { v4: uuidv4 } = require('uuid')
+const jwt = require('jsonwebtoken')
 
 const mongoose = require('mongoose')
 const Book = require('./models/book')
 const Author = require('./models/author')
+const User = require('./models/user')
 
 mongoose.set('strictQuery', false)
 require('dotenv').config()
@@ -122,11 +124,22 @@ const typeDefs = `
     id: ID!
   }
 
+  type User {
+    username: String!
+    favoriteGenre: String!
+    id: ID!
+  }
+
+  type Token {
+    value: String!
+  }
+
   type Query {
     bookCount: Int!
     authorCount: Int!
     allBooks(author: String, genre: String): [Book!]!
     allAuthors: [AuthorDetails!]!
+    me: User
   }
 
   type Mutation {
@@ -141,9 +154,18 @@ const typeDefs = `
       name: String!
       setBornTo: Int!
     ): AuthorDetails
+
+    createUser(
+      username: String!
+      favoriteGenre: String!
+    ): User
+
+    login(
+      username: String!
+      password: String!
+    ): Token
   }
 `
-
 const resolvers = {
   Query: {
     bookCount: async () => {
@@ -191,6 +213,7 @@ const resolvers = {
         }
       })
     },
+    me: (root, args, context) => context.currentUser,
   },
   Mutation: {
     addBook: async (root, args) => {
@@ -236,6 +259,7 @@ const resolvers = {
           }
         )
       }
+
       mongoose.connection.close()
       return newBook
     },
@@ -258,6 +282,42 @@ const resolvers = {
         bookCount: authorBooks.length,
       }
     },
+    createUser: async (root, args) => {
+      const user = new User({ ...args })
+
+      try {
+        return await user.save()
+      } catch (error) {
+        throw new GraphQLError(
+          'Creating user failed. Username should be at least 3 characters in length',
+          {
+            extensions: {
+              code: 'BAD_USER_INPUT',
+              invalidArgs: args.username,
+              error,
+            },
+          }
+        )
+      }
+    },
+    login: async (root, args) => {
+      const user = await User.findOne({ username: args.username })
+
+      if (!user || args.password !== 'secret') {
+        throw new GraphQLError('Wrong user credentials', {
+          extensions: {
+            code: 'BAD_USER_INPUT',
+          },
+        })
+      }
+
+      const userForToken = {
+        username: user.username,
+        id: user._id,
+      }
+
+      return { value: jwt.sign(userForToken, process.env.JWT_SECRET) }
+    },
   },
 }
 
@@ -268,6 +328,18 @@ const server = new ApolloServer({
 
 startStandaloneServer(server, {
   listen: { port: 4000 },
+  context: async ({ req, res }) => {
+    const auth = req ? req.headers.authorization : null
+    console.log('auth', auth)
+
+    if (auth) {
+      const decodedToken = jwt.verify(auth, process.env.JWT_SECRET)
+      console.log('decodedToken', decodedToken)
+      const currentUser = await User.findById(decodedToken.id)
+      console.log('curentUser', currentUser)
+      return { currentUser }
+    }
+  },
 }).then(({ url }) => {
   console.log(`Server ready at ${url}`)
 })
