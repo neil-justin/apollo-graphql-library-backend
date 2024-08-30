@@ -239,7 +239,7 @@ const resolvers = {
   },
   Mutation: {
     addBook: async (root, args) => {
-      const dbFoundAuthor = await Author.findOne({ name: args.author })
+      let dbFoundAuthor = await Author.findOne({ name: args.author })
       const dbFoundBook = await Book.findOne({ title: args.title })
 
       if (!dbFoundAuthor) {
