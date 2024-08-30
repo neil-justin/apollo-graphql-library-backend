@@ -179,23 +179,45 @@ const resolvers = {
       return dbAuthors.length
     },
     allBooks: async (root, args) => {
+      let books
       const dbBooks = await Book.find({})
-      const dbAuthor = await Author.findOne({ name: args.author })
+      const dbAuthors = await Author.find({})
+      const dbAuthor = dbAuthors.find((author) => author.name === args.author)
       mongoose.connection.close()
 
       if (args.author && args.genre) {
         const byAuthorGenre = dbBooks
           .filter((book) => book.genres.includes(args.genre))
           .filter((book) => dbAuthor._id.equals(book.author))
-
-        return byAuthorGenre
+        books = byAuthorGenre
       } else if (args.author) {
-        return dbBooks.filter((book) => dbAuthor._id.equals(book.author))
+        books = dbBooks.filter((book) => dbAuthor._id.equals(book.author))
       } else if (args.genre) {
-        return dbBooks.filter((book) => book.genres.includes(args.genre))
+        books = dbBooks.filter((book) => book.genres.includes(args.genre))
       } else {
-        return dbBooks
+        books = dbBooks
       }
+
+      return books.map((book) => {
+        const author = dbAuthors.find((author) =>
+          author._id.equals(book.author)
+        )
+        const authorBooks = dbBooks.filter((book) =>
+          author._id.equals(book.author)
+        )
+        return {
+          title: book.title,
+          author: {
+            name: author.name,
+            born: author.born,
+            id: author._id,
+            bookCount: authorBooks.length,
+          },
+          published: book.published,
+          genres: book.genres,
+          id: book._id,
+        }
+      })
     },
     allAuthors: async () => {
       const dbAuthors = await Author.find({})
@@ -330,13 +352,13 @@ startStandaloneServer(server, {
   listen: { port: 4000 },
   context: async ({ req, res }) => {
     const auth = req ? req.headers.authorization : null
-    console.log('auth', auth)
+    // console.log('auth', auth)
 
     if (auth) {
       const decodedToken = jwt.verify(auth, process.env.JWT_SECRET)
-      console.log('decodedToken', decodedToken)
+      // console.log('decodedToken', decodedToken)
       const currentUser = await User.findById(decodedToken.id)
-      console.log('curentUser', currentUser)
+      // console.log('curentUser', currentUser)
       return { currentUser }
     }
   },
