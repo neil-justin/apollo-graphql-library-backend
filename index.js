@@ -238,7 +238,15 @@ const resolvers = {
     me: (root, args, context) => context.currentUser,
   },
   Mutation: {
-    addBook: async (root, args) => {
+    addBook: async (root, args, context) => {
+      if (!context.currentUser) {
+        throw new GraphQLError('Log in first', {
+          extensions: {
+            code: 'UNAUTHENTICATED',
+          },
+        })
+      }
+
       let dbFoundAuthor = await Author.findOne({ name: args.author })
       const dbFoundBook = await Book.findOne({ title: args.title })
 
@@ -285,7 +293,15 @@ const resolvers = {
       mongoose.connection.close()
       return newBook
     },
-    editAuthor: async (root, args) => {
+    editAuthor: async (root, args, context) => {
+      if (!context.currentUser) {
+        throw new GraphQLError('Log in first', {
+          extensions: {
+            code: 'UNAUTHENTICATED',
+          },
+        })
+      }
+
       const dbAuthor = await Author.findOneAndUpdate(
         { name: args.name },
         { born: args.setBornTo },
