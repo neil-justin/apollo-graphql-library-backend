@@ -86,12 +86,10 @@ const resolvers = {
   Query: {
     bookCount: async () => {
       const dbBooks = await Book.find({})
-      mongoose.connection.close()
       return dbBooks.length
     },
     authorCount: async () => {
       const dbAuthors = await Author.find({})
-      mongoose.connection.close()
       return dbAuthors.length
     },
     allBooks: async (root, args) => {
@@ -99,7 +97,6 @@ const resolvers = {
       const dbBooks = await Book.find({})
       const dbAuthors = await Author.find({})
       const dbAuthor = dbAuthors.find((author) => author.name === args.author)
-      mongoose.connection.close()
 
       if (args.author && args.genre) {
         const byAuthorGenre = dbBooks
@@ -138,7 +135,6 @@ const resolvers = {
     allAuthors: async () => {
       const dbAuthors = await Author.find({})
       const dbBooks = await Book.find({})
-      mongoose.connection.close()
 
       return [...dbAuthors].map((author) => {
         const authorBooks = dbBooks.filter((book) =>
@@ -206,7 +202,6 @@ const resolvers = {
         )
       }
 
-      mongoose.connection.close()
       return newBook
     },
     editAuthor: async (root, args, context) => {
