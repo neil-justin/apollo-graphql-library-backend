@@ -130,7 +130,23 @@ const resolvers = {
 
       pubsub.publish('BOOK_ADDED', { bookAdded: newBook })
 
-      return newBook
+      const dbBooks = await Book.find({})
+      const authorBooks = dbBooks.filter((book) =>
+        dbFoundAuthor._id.equals(book.author)
+      )
+
+      return {
+        title: newBook.title,
+        author: {
+          name: dbFoundAuthor.name,
+          born: dbFoundAuthor.born,
+          id: dbFoundAuthor._id,
+          bookCount: authorBooks.length,
+        },
+        published: newBook.published,
+        genres: newBook.genres,
+        id: newBook._id,
+      }
     },
     editAuthor: async (root, args, context) => {
       if (!context.currentUser) {
